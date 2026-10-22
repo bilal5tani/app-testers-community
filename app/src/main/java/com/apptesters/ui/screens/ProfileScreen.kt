@@ -13,7 +13,10 @@ import com.apptesters.data.repository.ProfileRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onNavigateToSettings: () -> Unit = {}) {
+fun ProfileScreen(
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToEditProfile: () -> Unit = {}
+) {
     var profileData by remember { mutableStateOf<ProfileResponseDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -55,6 +58,10 @@ fun ProfileScreen(onNavigateToSettings: () -> Unit = {}) {
                         if (!p?.bio.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(p!!.bio, fontSize = 14.sp)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(onClick = onNavigateToEditProfile, modifier = Modifier.fillMaxWidth()) {
+                            Text("Edit Profile")
                         }
                     }
                 }

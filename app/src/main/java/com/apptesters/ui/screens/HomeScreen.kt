@@ -11,15 +11,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.HomeResponseDto
-import com.apptesters.data.repository.FakeHomeRepository
 import com.apptesters.data.repository.HomeRepository
+import com.apptesters.ui.theme.AppTestersCommunityTheme
+import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToDiscover: () -> Unit = {},
-    onNavigateToAppDetail: (String) -> Unit = {}
+    onNavigateToAppDetail: (String) -> Unit = {},
+    onNavigateToLiveProgress: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     var homeData by remember { mutableStateOf<HomeResponseDto?>(null) }
@@ -29,8 +31,6 @@ fun HomeScreen(
         val result = HomeRepository().getHome()
         if (result.isSuccess) {
             homeData = result.getOrNull()
-        } else {
-            homeData = FakeHomeRepository().getHome().getOrNull()
         }
         isLoading = false
     }
@@ -55,6 +55,7 @@ fun HomeScreen(
                 item {
                     val myApp = data?.myApp
                     Card(
+                        onClick = { if (myApp != null) onNavigateToLiveProgress() },
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
@@ -132,5 +133,13 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenPreview() {
+    AppTestersCommunityTheme {
+        HomeScreen()
     }
 }

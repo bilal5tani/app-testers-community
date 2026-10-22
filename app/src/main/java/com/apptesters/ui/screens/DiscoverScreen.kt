@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.DiscoverAppDto
 import com.apptesters.data.repository.AppsRepository
-import com.apptesters.data.repository.FakeAppsRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,8 +24,6 @@ fun DiscoverScreen(onNavigateToAppDetail: (String) -> Unit = {}) {
         val result = AppsRepository().discover(query = searchQuery)
         if (result.isSuccess) {
             appsList = result.getOrDefault(emptyList())
-        } else {
-            appsList = FakeAppsRepository().discover().getOrDefault(emptyList())
         }
         isLoading = false
     }
