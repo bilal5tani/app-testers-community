@@ -1,5 +1,6 @@
 package com.apptesters.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -11,12 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.apptesters.ui.screens.DiscoverScreen
+import com.apptesters.ui.screens.HomeScreen
+import com.apptesters.ui.screens.ProfileScreen
 
 enum class AppDestination(val title: String) {
     HOME("Home"),
     DISCOVER("Discover"),
-    LIVE_PROGRESS("Progress"),
-    NOTIFICATIONS("Notifications"),
     PROFILE("Profile")
 }
 
@@ -38,9 +40,12 @@ fun MainAppNavigation() {
             }
         }
     ) { innerPadding ->
-        Text(
-            text = "Active Screen: ${currentDestination.title}",
-            modifier = Modifier.padding(innerPadding)
-        )
+        Box(modifier = Modifier.padding(innerPadding)) {
+            when (currentDestination) {
+                AppDestination.HOME -> HomeScreen(onNavigateToDiscover = { currentDestination = AppDestination.DISCOVER })
+                AppDestination.DISCOVER -> DiscoverScreen()
+                AppDestination.PROFILE -> ProfileScreen()
+            }
+        }
     }
 }
