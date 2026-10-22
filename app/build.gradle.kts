@@ -60,8 +60,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
-    // Serialization
+    // Serialization & DataStore
     implementation(libs.kotlinx.json)
+    implementation(libs.datastore)
 
     // Supabase
     implementation(platform(libs.supabase.bom))
