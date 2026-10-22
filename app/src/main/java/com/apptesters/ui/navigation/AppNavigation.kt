@@ -12,19 +12,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.apptesters.ui.screens.AddAppScreen
 import com.apptesters.ui.screens.DiscoverScreen
 import com.apptesters.ui.screens.HomeScreen
+import com.apptesters.ui.screens.NotificationsScreen
 import com.apptesters.ui.screens.ProfileScreen
+import com.apptesters.ui.screens.SettingsScreen
 
 enum class AppDestination(val title: String) {
     HOME("Home"),
     DISCOVER("Discover"),
+    ADD_APP("Add App"),
+    NOTIFICATIONS("Inbox"),
     PROFILE("Profile")
 }
 
 @Composable
 fun MainAppNavigation() {
     var currentDestination by remember { mutableStateOf(AppDestination.HOME) }
+    var isSettingsOpen by remember { mutableStateOf(false) }
+
+    if (isSettingsOpen) {
+        SettingsScreen()
+        return
+    }
 
     Scaffold(
         bottomBar = {
@@ -44,7 +55,9 @@ fun MainAppNavigation() {
             when (currentDestination) {
                 AppDestination.HOME -> HomeScreen(onNavigateToDiscover = { currentDestination = AppDestination.DISCOVER })
                 AppDestination.DISCOVER -> DiscoverScreen()
-                AppDestination.PROFILE -> ProfileScreen()
+                AppDestination.ADD_APP -> AddAppScreen(onAppCreated = { currentDestination = AppDestination.HOME })
+                AppDestination.NOTIFICATIONS -> NotificationsScreen()
+                AppDestination.PROFILE -> ProfileScreen(onNavigateToSettings = { isSettingsOpen = true })
             }
         }
     }
