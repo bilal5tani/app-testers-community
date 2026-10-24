@@ -1,57 +1,50 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// delete-account: signed-in user deletes their own account.
+// Removes the user's Storage files (including nested feedback/<uid>/<app_id>/ folders),
+// then deletes the auth user; every table row follows through ON DELETE CASCADE.
+// Deploy: supabase functions deploy delete-account   (JWT verification stays ON)
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const corsHeaders = {
+const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
-    );
+    const auth = req.headers.get("Authorization");
+    if (!auth) return json({ error: "unauthorized" }, 401);
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
+    const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: { user }, error } = await asUser.auth.getUser();
+    if (error || !user) return json({ error: "unauthorized" }, 401);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const buckets = ["avatars", "app-icons", "feedback"];
-    for (const bucket of buckets) {
-      const { data: files } = await supabaseAdmin.storage.from(bucket).list(user.id);
-      if (files && files.length > 0) {
-        const filePaths = files.map((f) => `${user.id}/${f.name}`);
-        await supabaseAdmin.storage.from(bucket).remove(filePaths);
+    // collect every file under <bucket>/<uid>/ (folders have no id), then remove in one call per bucket
+    const collect = async (bucket: string, prefix: string): Promise<string[]> => {
+      const { data } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
+      const out: string[] = [];
+      for (const item of data ?? []) {
+        const path = `${prefix}/${item.name}`;
+        if (item.id) out.push(path);
+        else out.push(...await collect(bucket, path));
       }
+      return out;
+    };
+    for (const bucket of ["avatars", "app-icons", "feedback"]) {
+      const files = await collect(bucket, user.id);
+      if (files.length) await admin.storage.from(bucket).remove(files);
     }
 
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-    if (deleteError) {
-      throw deleteError;
-    }
-
-    return new Response(JSON.stringify({ status: "account_deleted" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    const { error: delErr } = await admin.auth.admin.deleteUser(user.id);
+    if (delErr) throw delErr;
+    return json({ status: "account_deleted" });
+  } catch (e) {
+    return json({ error: (e as Error).message }, 500);
   }
 });
