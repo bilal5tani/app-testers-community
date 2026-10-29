@@ -13,6 +13,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -77,6 +78,10 @@ dependencies {
     implementation(libs.cred.core)
     implementation(libs.cred.play)
     implementation(libs.googleid)
+
+    // Firebase Cloud Messaging (push)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     // Coil
     implementation(libs.coil.compose)

@@ -1,5 +1,6 @@
 package com.apptesters.domain
 
+/** Errors raised by the Supabase rpc functions (message = code). */
 sealed class AppError : Exception() {
     data object NotAuthenticated : AppError()
     data object NotFound : AppError()
@@ -12,7 +13,10 @@ sealed class AppError : Exception() {
     data object AppNotOpen : AppError()
     data object AlreadyNudged : AppError()
     data object InvalidInput : AppError()
+    data object UsernameTaken : AppError()
+    data object PackageTaken : AppError()
     data object Blocked : AppError()
+    data object Network : AppError()
     data class Unknown(override val message: String) : AppError()
 
     companion object {
@@ -29,8 +33,12 @@ sealed class AppError : Exception() {
                 msg.contains("not_enrolled") -> NotEnrolled
                 msg.contains("app_not_open") -> AppNotOpen
                 msg.contains("already_nudged") -> AlreadyNudged
+                msg.contains("username_taken") -> UsernameTaken
+                msg.contains("apps_package_name_key") -> PackageTaken
                 msg.contains("invalid_input") -> InvalidInput
                 msg.contains("blocked") -> Blocked
+                msg.contains("Unable to resolve host") || msg.contains("timeout", ignoreCase = true) ||
+                    msg.contains("Failed to connect") -> Network
                 else -> Unknown(msg)
             }
         }

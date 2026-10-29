@@ -12,60 +12,89 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.NotificationDto
 import com.apptesters.data.repository.InboxRepository
+import com.apptesters.domain.userMessage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private val ROUTE_REGEX = Regex("\"route\"\\s*:\\s*\"app/([^/\"]+)")
+
+private fun routeAppId(data: String?): String? = ROUTE_REGEX.find(data ?: "")?.groupValues?.get(1)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationsScreen() {
-    val coroutineScope = rememberCoroutineScope()
-    var notifications by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+fun NotificationsScreen(onOpenApp: (String) -> Unit = {}) {
+    val scope = rememberCoroutineScope()
+    var list by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    suspend fun refresh() {
+        val r = InboxRepository().listNotifications()
+        r.onSuccess { list = it; error = null }
+        r.onFailure { if (list.isEmpty()) error = it.userMessage() }
+        loading = false
+    }
 
     LaunchedEffect(Unit) {
-        val result = InboxRepository().listNotifications()
-        notifications = result.getOrDefault(emptyList())
-        isLoading = false
+        refresh()
+        while (true) {
+            delay(20_000)
+            refresh()
+        }
     }
+
+    val unread = list.count { it.readAt == null }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notifications Inbox", fontWeight = FontWeight.Bold) },
+                title = { Text("Inbox", fontWeight = FontWeight.Bold) },
                 actions = {
-                    TextButton(onClick = {
-                        coroutineScope.launch {
-                            InboxRepository().markRead()
-                            val result = InboxRepository().listNotifications()
-                            notifications = result.getOrDefault(emptyList())
-                        }
-                    }) {
-                        Text("Mark All Read")
-                    }
+                    TextButton(
+                        onClick = { scope.launch { InboxRepository().markRead(); refresh() } },
+                        enabled = unread > 0
+                    ) { Text("Mark all read") }
                 }
             )
         }
     ) { innerPadding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (notifications.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text("No notifications yet.", fontSize = 16.sp)
-            }
-        } else {
-            LazyColumn(
+        when {
+            loading -> LoadingBox(Modifier.padding(innerPadding))
+            error != null -> ErrorBox(error!!, onRetry = { loading = true; scope.launch { refresh() } }, modifier = Modifier.padding(innerPadding))
+            list.isEmpty() -> EmptyBox("No notifications yet.", Modifier.padding(innerPadding))
+            else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(notifications) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Event: ${item.event.replace('_', ' ').uppercase()}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            if (!item.data.isNullOrBlank()) {
-                                Text(item.data, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                items(list, key = { it.id }) { n ->
+                    val isUnread = n.readAt == null
+                    val appId = routeAppId(n.data)
+                    Card(
+                        onClick = {
+                            scope.launch {
+                                if (isUnread) { InboxRepository().markRead(listOf(n.id)); refresh() }
+                                if (appId != null) onOpenApp(appId)
                             }
-                            Text("Time: ${item.createdAt}", fontSize = 10.sp)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isUnread) MaterialTheme.colorScheme.secondaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isUnread) {
+                                    Text("● ", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                                }
+                                Text(
+                                    n.title.ifBlank { n.event.replace('_', ' ').replaceFirstChar { it.uppercase() } },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
+                            if (n.body.isNotBlank()) Text(n.body, fontSize = 14.sp)
+                            Text(shortTime(n.createdAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
                         }
                     }
                 }

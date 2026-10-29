@@ -9,20 +9,22 @@ import com.apptesters.data.dto.TodayCheckInDto
 class FakeHomeRepository {
     suspend fun getHome(): Result<HomeResponseDto> = Result.success(
         HomeResponseDto(
-            myApp = HomeSummaryAppDto(
-                id = "sample-app-1",
-                title = "My Sample App",
-                status = "testing",
-                qualifiedDays = 6,
-                testersNeeded = 12,
-                joinedCount = 9
+            myApps = listOf(
+                HomeSummaryAppDto(
+                    id = "sample-app-1",
+                    title = "My Sample App",
+                    status = "testing",
+                    qualifiedDays = 6,
+                    testersNeeded = 12,
+                    joinedCount = 9
+                )
             ),
             todayCheckins = listOf(
                 TodayCheckInDto(
                     appId = "test-app-1",
                     title = "Demo Tester App",
                     packageName = "com.demo.app",
-                    playStoreUrl = "https://play.google.com/store/apps/details?id=com.demo.app",
+                    playStoreUrl = "https://play.google.com/apps/testing/com.demo.app",
                     checkedInToday = false,
                     streak = 4
                 )

@@ -8,12 +8,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.HomeResponseDto
 import com.apptesters.data.repository.HomeRepository
+import com.apptesters.domain.userMessage
 import com.apptesters.ui.theme.AppTestersCommunityTheme
-import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -21,41 +23,56 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     onNavigateToDiscover: () -> Unit = {},
     onNavigateToAppDetail: (String) -> Unit = {},
-    onNavigateToLiveProgress: () -> Unit = {}
+    onNavigateToLiveProgress: (String) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
     var homeData by remember { mutableStateOf<HomeResponseDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var checkingInId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    suspend fun load() {
         val result = HomeRepository().getHome()
         if (result.isSuccess) {
             homeData = result.getOrNull()
+            loadError = null
+        } else {
+            loadError = result.exceptionOrNull()?.userMessage()
         }
         isLoading = false
     }
 
+    LaunchedEffect(Unit) { load() }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("App Testers Community", fontWeight = FontWeight.Bold) }
-            )
-        }
+        topBar = { TopAppBar(title = { Text("App Testers Community", fontWeight = FontWeight.Bold) }) },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { innerPadding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+        val data = homeData
+        when {
+            isLoading -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-        } else {
-            val data = homeData
-            LazyColumn(
+            data == null -> Column(
+                Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(loadError ?: "Could not load.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.error)
+                Button(
+                    onClick = { coroutineScope.launch { isLoading = true; load() } },
+                    modifier = Modifier.padding(top = 16.dp)
+                ) { Text("Retry") }
+            }
+            else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    val myApp = data?.myApp
+                    val myApp = data.myApp
                     Card(
-                        onClick = { if (myApp != null) onNavigateToLiveProgress() },
+                        onClick = { if (myApp != null) onNavigateToLiveProgress(myApp.id) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
@@ -78,28 +95,34 @@ fun HomeScreen(
                     }
                 }
 
-                item {
-                    Text("Today's Check-ins", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                item { Text("Today's Check-ins", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+
+                if (data.todayCheckins.isEmpty()) {
+                    item { Text("You are not testing any app yet. Find one in Discover.", fontSize = 14.sp) }
                 }
 
-                items(data?.todayCheckins ?: emptyList()) { checkIn ->
+                items(data.todayCheckins, key = { it.appId }) { checkIn ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(checkIn.title, fontWeight = FontWeight.Bold)
                                 Text("Streak: ${checkIn.streak} days", fontSize = 12.sp)
                             }
                             Button(
                                 onClick = {
                                     coroutineScope.launch {
-                                        HomeRepository().checkIn(checkIn.appId)
+                                        checkingInId = checkIn.appId
+                                        val res = HomeRepository().checkIn(checkIn.appId)
+                                        checkingInId = null
+                                        if (res.isSuccess) load()
+                                        else snackbar.showSnackbar(res.exceptionOrNull()?.userMessage() ?: "Check-in failed")
                                     }
                                 },
-                                enabled = !checkIn.checkedInToday
+                                enabled = !checkIn.checkedInToday && checkingInId == null
                             ) {
                                 Text(if (checkIn.checkedInToday) "Checked In ✓" else "Check In")
                             }
@@ -114,13 +137,11 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Apps Needing Testers", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        TextButton(onClick = onNavigateToDiscover) {
-                            Text("See All")
-                        }
+                        TextButton(onClick = onNavigateToDiscover) { Text("See All") }
                     }
                 }
 
-                items(data?.needsTesters ?: emptyList()) { app ->
+                items(data.needsTesters, key = { it.id }) { app ->
                     OutlinedCard(
                         onClick = { onNavigateToAppDetail(app.id) },
                         modifier = Modifier.fillMaxWidth()
@@ -139,7 +160,5 @@ fun HomeScreen(
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
-    AppTestersCommunityTheme {
-        HomeScreen()
-    }
+    AppTestersCommunityTheme { HomeScreen() }
 }

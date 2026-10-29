@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "158095289579",
+    "project_id": "studio-216882030-e8450",
+    "storage_bucket": "studio-216882030-e8450.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:158095289579:android:9dc085596d1a3aa8a8e2ae",
+        "android_client_info": {
+          "package_name": "com.apptesters"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "158095289579-crqlm0b8rqrvfrumepu4cl9a2ha4adt0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.apptesters",
+            "certificate_hash": "cb591fc2edb22206b59bbc1d0467790a1759f508"
+          }
+        },
+        {
+          "client_id": "158095289579-dg74o8iphmg4kv7uul7mv1rb7b2obic6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkFVrABdMeNtwDrAlbIZRCnEVgO0su0DE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "158095289579-67ej1308ipdrte65mh5iqnkkp8m98eo0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:158095289579:android:7ae999015bc447a8a8e2ae",
+        "android_client_info": {
+          "package_name": "com.bilal.squadclash"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "158095289579-dg74o8iphmg4kv7uul7mv1rb7b2obic6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkFVrABdMeNtwDrAlbIZRCnEVgO0su0DE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "158095289579-67ej1308ipdrte65mh5iqnkkp8m98eo0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

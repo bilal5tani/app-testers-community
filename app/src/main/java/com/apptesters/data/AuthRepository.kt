@@ -1,8 +1,10 @@
 package com.apptesters.data
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import io.github.jan.supabase.auth.auth
@@ -29,9 +31,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun signInWithGoogle(webClientId: String): Result<Unit> = runCatching {
         val rawNonce = UUID.randomUUID().toString()
-        val bytes = rawNonce.toByteArray()
-        val md = MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(bytes)
+        val digest = MessageDigest.getInstance("SHA-256").digest(rawNonce.toByteArray())
         val hashedNonce = digest.fold("") { str, it -> str + "%02x".format(it) }
 
         val googleIdOption = GetGoogleIdOption.Builder()
@@ -44,14 +44,23 @@ class AuthRepository(private val context: Context) {
             .addCredentialOption(googleIdOption)
             .build()
 
-        val credentialManager = CredentialManager.create(context)
-        val result = credentialManager.getCredential(context, request)
-        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+        try {
+            val credentialManager = CredentialManager.create(context)
+            val result = credentialManager.getCredential(context, request)
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
 
-        supabase.auth.signInWith(IDToken) {
-            idToken = googleIdTokenCredential.idToken
-            provider = Google
-            nonce = rawNonce
+            supabase.auth.signInWith(IDToken) {
+                idToken = googleIdTokenCredential.idToken
+                provider = Google
+                nonce = rawNonce
+            }
+        } catch (e: GetCredentialException) {
+            // Filter Logcat by "ATC_AUTH" to see the real reason.
+            Log.e("ATC_AUTH", "type=${e.type} class=${e.javaClass.simpleName} msg=${e.message}", e)
+            throw e
+        } catch (e: Exception) {
+            Log.e("ATC_AUTH", "sign-in failed: ${e.javaClass.simpleName}: ${e.message}", e)
+            throw e
         }
     }
 
