@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apptesters.data.RealtimeFeeds
 import com.apptesters.data.dto.NotificationDto
 import com.apptesters.data.repository.InboxRepository
 import com.apptesters.domain.userMessage
@@ -38,9 +39,13 @@ fun NotificationsScreen(onOpenApp: (String) -> Unit = {}) {
     LaunchedEffect(Unit) {
         refresh()
         while (true) {
-            delay(20_000)
+            delay(60_000) // safety net; realtime below does the live updates
             refresh()
         }
+    }
+
+    LaunchedEffect(Unit) {
+        runCatching { RealtimeFeeds.inboxChanges().collect { refresh() } }
     }
 
     val unread = list.count { it.readAt == null }

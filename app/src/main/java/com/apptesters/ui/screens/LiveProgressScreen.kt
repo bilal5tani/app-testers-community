@@ -17,6 +17,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.apptesters.data.RealtimeFeeds
 import com.apptesters.data.dto.AppProgressResponseDto
 import com.apptesters.data.dto.ProgressTesterDto
 import com.apptesters.data.dto.TesterEmailDto
@@ -25,7 +26,7 @@ import com.apptesters.domain.userMessage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Owner-only screen. Refreshes itself every 20 seconds while it is open. */
+/** Owner-only screen. Updates live through Supabase Realtime while it is open. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveProgressScreen(
@@ -51,9 +52,13 @@ fun LiveProgressScreen(
     LaunchedEffect(appId) {
         refresh()
         while (true) {
-            delay(20_000)
+            delay(60_000) // safety net; realtime below does the live updates
             refresh()
         }
+    }
+
+    LaunchedEffect(appId) {
+        runCatching { RealtimeFeeds.progressChanges(appId).collect { refresh() } }
     }
 
     emails?.let { list ->

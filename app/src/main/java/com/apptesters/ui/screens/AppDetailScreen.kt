@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.AppDetailResponseDto
 import com.apptesters.data.repository.AppsRepository
 import com.apptesters.data.repository.HomeRepository
+import com.apptesters.data.repository.SettingsRepository
 import com.apptesters.domain.userMessage
 import kotlinx.coroutines.launch
 
@@ -35,6 +37,8 @@ fun AppDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf<String?>(null) } // report_app | report_dev | block_dev | feedback
 
     suspend fun refresh() {
         val r = AppsRepository().getAppDetail(appId)
@@ -78,6 +82,51 @@ fun AppDetailScreen(
         )
     }
 
+    val current = detail
+    when (dialog) {
+        "report_app" -> ReasonDialog(
+            title = "Report this app", label = "What is wrong?", submitLabel = "Report",
+            onDismiss = { dialog = null },
+            onSubmit = { reason ->
+                dialog = null
+                act("Thanks, we will review it.") { SettingsRepository().report("app", appId, reason) }
+            }
+        )
+        "report_dev" -> ReasonDialog(
+            title = "Report developer", label = "What is wrong?", submitLabel = "Report",
+            onDismiss = { dialog = null },
+            onSubmit = { reason ->
+                dialog = null
+                val ownerId = current?.owner?.id
+                if (ownerId != null) act("Thanks, we will review it.") { SettingsRepository().report("user", ownerId, reason) }
+            }
+        )
+        "block_dev" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Block this developer?") },
+            text = { Text("You will no longer see each other's apps.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    dialog = null
+                    val ownerId = current?.owner?.id
+                    if (ownerId != null) scope.launch {
+                        val r = SettingsRepository().blockUser(ownerId)
+                        if (r.isSuccess) onBack()
+                        else snackbar.showSnackbar(r.exceptionOrNull()?.userMessage() ?: "Failed.")
+                    }
+                }) { Text("Block", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } }
+        )
+        "feedback" -> FeedbackDialog(
+            onDismiss = { dialog = null },
+            onSubmit = { kind, body ->
+                dialog = null
+                act("Feedback sent to the developer.") { SettingsRepository().sendFeedback(appId, kind, body) }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -85,6 +134,18 @@ fun AppDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (detail?.isOwner == false) {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Report this app") }, onClick = { menuOpen = false; dialog = "report_app" })
+                            DropdownMenuItem(text = { Text("Report developer") }, onClick = { menuOpen = false; dialog = "report_dev" })
+                            DropdownMenuItem(text = { Text("Block developer") }, onClick = { menuOpen = false; dialog = "block_dev" })
+                        }
                     }
                 }
             )
@@ -164,6 +225,9 @@ fun AppDetailScreen(
                                     ) { Text(if (enr.checkedToday) "Checked in today ✓" else "Check in for today") }
                                     OutlinedButton(onClick = { open(app.playStoreUrl) }, modifier = Modifier.fillMaxWidth()) {
                                         Text("Open Play Store test page")
+                                    }
+                                    OutlinedButton(onClick = { dialog = "feedback" }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Send feedback to developer")
                                     }
                                     OutlinedButton(
                                         onClick = { confirmLeave = true },
