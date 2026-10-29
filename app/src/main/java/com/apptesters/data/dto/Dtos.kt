@@ -1,3 +1,4 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 package com.apptesters.data.dto
 
 import kotlinx.serialization.KSerializer
