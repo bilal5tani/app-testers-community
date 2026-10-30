@@ -67,6 +67,32 @@ object AtcIcons {
     }
     val Chevron = strokeIcon("chevron") { moveTo(9f, 6f); lineTo(15f, 12f); lineTo(9f, 18f) }
     val Back = strokeIcon("back") { moveTo(15f, 6f); lineTo(9f, 12f); lineTo(15f, 18f) }
+    val Search = strokeIcon("search") {
+        moveTo(18f, 11f); arcTo(7f, 7f, 0f, true, true, 4f, 11f); arcTo(7f, 7f, 0f, true, true, 18f, 11f); close()
+        moveTo(20f, 20f); lineTo(16f, 16f)
+    }
+    val More = strokeIcon("more") {
+        moveTo(12f, 5f); lineTo(12f, 5.01f); moveTo(12f, 12f); lineTo(12f, 12.01f); moveTo(12f, 19f); lineTo(12f, 19.01f)
+    }
+    val Warn = strokeIcon("warn") { moveTo(12f, 7f); verticalLineTo(13f); moveTo(12f, 17f); lineTo(12f, 17.01f) }
+    val Sliders = strokeIcon("sliders") {
+        moveTo(4f, 6f); horizontalLineTo(12f); moveTo(16f, 6f); horizontalLineTo(20f)
+        moveTo(4f, 12f); horizontalLineTo(6f); moveTo(10f, 12f); horizontalLineTo(20f)
+        moveTo(4f, 18f); horizontalLineTo(14f); moveTo(18f, 18f); horizontalLineTo(20f)
+        moveTo(14f, 6f); lineTo(14f, 6.01f); moveTo(8f, 12f); lineTo(8f, 12.01f); moveTo(16f, 18f); lineTo(16f, 18.01f)
+    }
+    val User = strokeIcon("user") {
+        moveTo(4f, 21f); curveTo(4f, 17f, 8f, 15f, 12f, 15f); curveTo(16f, 15f, 20f, 17f, 20f, 21f)
+        moveTo(16f, 8f); arcTo(4f, 4f, 0f, true, true, 8f, 8f); arcTo(4f, 4f, 0f, true, true, 16f, 8f); close()
+    }
+    val Lock = strokeIcon("lock") {
+        moveTo(6f, 11f); horizontalLineTo(18f); verticalLineTo(20f); horizontalLineTo(6f); close()
+        moveTo(8f, 11f); verticalLineTo(8f); arcTo(4f, 4f, 0f, false, true, 16f, 8f); verticalLineTo(11f)
+    }
+    val Sun = strokeIcon("sun") {
+        moveTo(16f, 12f); arcTo(4f, 4f, 0f, true, true, 8f, 12f); arcTo(4f, 4f, 0f, true, true, 16f, 12f); close()
+        moveTo(12f, 3f); verticalLineTo(5f); moveTo(12f, 19f); verticalLineTo(21f); moveTo(3f, 12f); horizontalLineTo(5f); moveTo(19f, 12f); horizontalLineTo(21f)
+    }
     val Check = strokeIcon("check") { moveTo(5f, 12f); lineTo(10f, 17f); lineTo(19f, 7f) }
 }
 

@@ -2,12 +2,21 @@ package com.apptesters.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import com.apptesters.ui.components.*
+import com.apptesters.ui.theme.Atc
+import com.apptesters.ui.theme.Bricolage
+import coil.compose.AsyncImage
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,7 +31,6 @@ import com.apptesters.data.repository.SettingsRepository
 import com.apptesters.domain.userMessage
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
     appId: String,
@@ -127,19 +135,15 @@ fun AppDetailScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(detail?.app?.title ?: "App Details", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (detail?.isOwner == false) {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+    val c = Atc.colors
+    val d = detail
+    Box(Modifier.fillMaxSize().background(c.bg)) {
+        Column(Modifier.fillMaxSize()) {
+            AtcTopBar(onBack = onBack) {
+                if (d?.isOwner == false) {
+                    Box {
+                        Box(Modifier.size(44.dp).clip(CircleShape).clickable { menuOpen = true }, contentAlignment = Alignment.Center) {
+                            AtcIcon(AtcIcons.More, c.ink, 22.dp)
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(text = { Text("Report this app") }, onClick = { menuOpen = false; dialog = "report_app" })
@@ -148,126 +152,160 @@ fun AppDetailScreen(
                         }
                     }
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbar) }
-    ) { innerPadding ->
-        val d = detail
-        when {
-            loading -> LoadingBox(Modifier.padding(innerPadding))
-            d == null -> ErrorBox(error ?: "Could not load.", onRetry = {
-                loading = true
-                scope.launch { refresh() }
-            }, modifier = Modifier.padding(innerPadding))
-            else -> {
-                val app = d.app
-                val enr = d.myEnrollment
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Card(Modifier.fillMaxWidth()) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                AppIcon(app.iconUrl, app.title, 56.dp)
-                                Spacer(Modifier.width(12.dp))
-                                Column {
-                                    Text(app.title, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                                    Text(app.packageName, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
-                                    Text(
-                                        "${app.category.replaceFirstChar { it.uppercase() }} • ${app.status.replaceFirstChar { it.uppercase() }}",
-                                        fontSize = 13.sp
-                                    )
+            }
+            when {
+                loading -> LoadingBox(Modifier.weight(1f))
+                d == null -> ErrorBox(error ?: "Could not load.", onRetry = { loading = true; scope.launch { refresh() } }, modifier = Modifier.weight(1f))
+                else -> {
+                    val app = d.app
+                    val enr = d.myEnrollment
+                    val joinedNow = enr != null && enr.status == "joined"
+                    Column(
+                        Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(22.dp)
+                    ) {
+                        // Title
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AppIcon(app.iconUrl, app.title, 80.dp)
+                            Spacer(Modifier.width(16.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(app.title, color = c.ink, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 30.sp)
+                                Text("by ${d.owner.displayName} · ${app.category.replaceFirstChar { it.uppercase() }}", color = c.muted, fontSize = 14.sp)
+                                Text(app.packageName, color = c.muted, fontSize = 12.sp, maxLines = 1)
+                            }
+                        }
+
+                        // Hero
+                        Column(
+                            Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp)).background(c.heroBg).padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text("${app.joinedCount}", color = c.heroInk, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 44.sp, lineHeight = 44.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("of ${app.testersNeeded} testers joined", color = c.heroMuted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 4.dp))
+                                Spacer(Modifier.weight(1f))
+                                Text("Day ${app.qualifiedDays} / 14", color = c.heroAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(bottom = 4.dp))
+                            }
+                            SegmentBar(app.qualifiedDays, 14, c.heroSegOn, c.heroSegOff)
+                            Text(
+                                "${app.spotsLeft} spots left. Testing must run 14 days in a row for the developer to apply for production.",
+                                color = c.heroMuted, fontSize = 13.sp
+                            )
+                        }
+
+                        if (!app.description.isNullOrBlank()) {
+                            Text(app.description, color = c.ink, fontSize = 14.sp, lineHeight = 20.sp)
+                        }
+
+                        // Your testing (joined)
+                        if (joinedNow && enr != null) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                SectionHeader("Your testing", "Streak ${enr.streak}")
+                                AtcCard {
+                                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Text("Day ${enr.daysDone} of 14", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        ThinBar(enr.daysDone / 14f)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            PillButton("Play Store page", { open(app.playStoreUrl) }, Modifier.weight(1f), height = 44.dp, outlined = true, content = c.ink)
+                                            PillButton("Feedback", { dialog = "feedback" }, Modifier.weight(1f), height = 44.dp, outlined = true, content = c.ink)
+                                        }
+                                        PillButton("Leave test", { confirmLeave = true }, Modifier.fillMaxWidth(), height = 44.dp, outlined = true, content = c.danger, enabled = !busy)
+                                    }
                                 }
                             }
-                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                                LinearProgressIndicator(
-                                    progress = { app.qualifiedDays / 14f },
-                                    modifier = Modifier.fillMaxWidth()
+                        }
+
+                        // How testing works
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SectionHeader("How testing works")
+                            AtcCard {
+                                val steps = listOf(
+                                    "Join the Google Group" to "The developer shares a group link. Joining it gives your Google account access to the test.",
+                                    "Accept the testing invite" to "Open the Play Store opt-in link and tap Become a tester.",
+                                    "Install and open the app" to "Download it from Google Play on your Android phone.",
+                                    "Check in every day" to "Open the app once a day for 14 days and tap Check in here. Leave feedback whenever you find a bug."
                                 )
-                                Spacer(Modifier.height(4.dp))
-                                Text("${app.qualifiedDays} / 14 qualified days", fontSize = 13.sp)
-                                Text("${app.joinedCount} / ${app.testersNeeded} testers opted in • ${app.spotsLeft} spots left", fontSize = 13.sp)
-                                if (!app.description.isNullOrBlank()) {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(app.description, fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text("Developer", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text(d.owner.displayName, fontSize = 16.sp)
-                                Text("Karma ${d.owner.karma}", fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
-                        }
-                    }
-
-                    if (d.isOwner) {
-                        item {
-                            Button(onClick = { onNavigateToLiveProgress(app.id) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("View Live Progress")
-                            }
-                        }
-                    } else if (enr != null && enr.status == "joined") {
-                        item {
-                            Card(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Your testing", fontWeight = FontWeight.Bold)
-                                    Text("Day ${enr.daysDone} of 14 • Streak ${enr.streak}", fontSize = 14.sp)
-                                    Button(
-                                        onClick = { act("Checked in for today.") { HomeRepository().checkIn(app.id) } },
-                                        enabled = !busy && !enr.checkedToday,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (enr.checkedToday) "Checked in today ✓" else "Check in for today") }
-                                    OutlinedButton(onClick = { open(app.playStoreUrl) }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Open Play Store test page")
-                                    }
-                                    OutlinedButton(onClick = { dialog = "feedback" }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Send feedback to developer")
-                                    }
-                                    OutlinedButton(
-                                        onClick = { confirmLeave = true },
-                                        enabled = !busy,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Leave test") }
-                                }
-                            }
-                        }
-                    } else if (enr != null) {
-                        item {
-                            Text("Your status for this app: ${enr.status}", color = MaterialTheme.colorScheme.secondary)
-                        }
-                    } else {
-                        item {
-                            Card(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("How to test", fontWeight = FontWeight.Bold)
-                                    Text("1. Tap Join below.\n2. Join the developer's Google Group.\n3. Open the Play Store test link and opt in.\n4. Install the app and check in every day for 14 days.", fontSize = 14.sp)
-                                    OutlinedButton(onClick = { open(app.googleGroupUrl) }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Open Google Group")
-                                    }
-                                    Button(
-                                        onClick = {
-                                            act("Joined! Now join the group and opt in on Play Store.") {
-                                                AppsRepository().joinApp(app.id)
+                                steps.forEachIndexed { i, (t, b) ->
+                                    if (i > 0) HorizontalDivider(color = c.divider)
+                                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                                        Box(Modifier.size(32.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
+                                            Text("${i + 1}", color = c.onAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        }
+                                        Spacer(Modifier.width(14.dp))
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(t, color = c.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text(b, color = c.muted, fontSize = 13.sp, lineHeight = 18.sp)
+                                            if (i == 0 && !d.isOwner) {
+                                                Text(
+                                                    "Open Google Group", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                                    modifier = Modifier.clickable { open(app.googleGroupUrl) }.padding(vertical = 8.dp)
+                                                )
                                             }
-                                        },
-                                        enabled = !busy && app.spotsLeft > 0 && app.status != "completed" && app.status != "paused",
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        if (busy) CircularProgressIndicator(Modifier.size(20.dp))
-                                        else Text(if (app.spotsLeft > 0) "Join this test" else "No spots left")
+                                        }
                                     }
                                 }
+                            }
+                        }
+
+                        // Testers so far
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SectionHeader("Testers so far")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (d.testerFaces.isNotEmpty()) {
+                                    Row {
+                                        d.testerFaces.take(6).forEachIndexed { i, f ->
+                                            val m = Modifier.offset(x = (-10 * i).dp)
+                                            Box(m.size(40.dp).clip(CircleShape).border(2.dp, c.bg, CircleShape).background(tintFor(f.displayName)), contentAlignment = Alignment.Center) {
+                                                if (!f.avatarUrl.isNullOrBlank()) AsyncImage(f.avatarUrl, f.displayName, Modifier.fillMaxSize())
+                                                else Text(f.displayName.trim().take(2).uppercase(), color = Color(0xFF121212), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            }
+                                        }
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                }
+                                Text(
+                                    if (d.testerFaces.isEmpty()) "No testers yet. Be the first." else "Progress is shared live with the developer.",
+                                    color = c.muted, fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Sticky CTA
+                    Column(
+                        Modifier.fillMaxWidth().background(c.bg).navigationBarsPadding()
+                            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HorizontalDivider(color = c.navBorder, modifier = Modifier.offset(y = (-12).dp).fillMaxWidth())
+                        val ctaBg = if (c.isDark) c.accent else c.ink
+                        val ctaFg = if (c.isDark) c.onAccent else c.accent
+                        when {
+                            d.isOwner -> PillButton("View live progress", { onNavigateToLiveProgress(app.id) }, Modifier.fillMaxWidth(), 54.dp, ctaBg, ctaFg)
+                            joinedNow && enr != null -> {
+                                PillButton(
+                                    if (enr.checkedToday) "Checked in today ✓" else "Check in for today",
+                                    { act("Checked in for today.") { HomeRepository().checkIn(app.id) } },
+                                    Modifier.fillMaxWidth(), 54.dp, ctaBg, ctaFg, enabled = !busy && !enr.checkedToday
+                                )
+                                Text("Streak ${enr.streak} days. Check in once a day to keep it.", color = c.muted, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                            }
+                            enr != null -> Text("Your status for this app: ${enr.status}", color = c.muted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                            else -> {
+                                PillButton(
+                                    if (app.spotsLeft > 0) "Start testing" else "No spots left",
+                                    { act("Joined! Now join the group and opt in on Play Store.") { AppsRepository().joinApp(app.id) } },
+                                    Modifier.fillMaxWidth(), 54.dp, ctaBg, ctaFg,
+                                    enabled = !busy && app.spotsLeft > 0 && app.status != "completed" && app.status != "paused"
+                                )
+                                Text("Free. You'll check in once a day to keep your streak.", color = c.muted, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                             }
                         }
                     }
                 }
             }
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
     }
 }

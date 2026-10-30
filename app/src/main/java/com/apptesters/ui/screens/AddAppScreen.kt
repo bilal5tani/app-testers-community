@@ -1,25 +1,32 @@
 package com.apptesters.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.apptesters.data.repository.AppsRepository
 import com.apptesters.domain.userMessage
+import com.apptesters.ui.components.*
+import com.apptesters.ui.theme.Atc
+import com.apptesters.ui.theme.Bricolage
 import kotlinx.coroutines.launch
 
 private val PACKAGE_REGEX = Regex("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")
 private val CATEGORY_OPTIONS = listOf("tools", "games", "education", "lifestyle", "other")
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAppScreen(onAppCreated: () -> Unit = {}) {
+    val c = Atc.colors
     val scope = rememberCoroutineScope()
     var title by remember { mutableStateOf("") }
     var packageName by remember { mutableStateOf("") }
@@ -40,87 +47,83 @@ fun AddAppScreen(onAppCreated: () -> Unit = {}) {
     val canSubmit = !loading && title.isNotBlank() && pkg.isNotEmpty() && pkgOk &&
         optIn.isNotEmpty() && optOk && group.isNotEmpty() && groupOk
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("List Your App", fontWeight = FontWeight.Bold) }) }
-    ) { innerPadding ->
+    Column(Modifier.fillMaxSize().background(c.bg)) {
+        Text(
+            "Add your app", color = c.ink, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp,
+            modifier = Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 4.dp)
+        )
         Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            OutlinedTextField(
-                value = title, onValueChange = { title = it },
-                label = { Text("App name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            Text(
+                "Share your closed-testing app so other developers can join. Testers check in daily and you watch the 14-day count live.",
+                color = c.muted, fontSize = 14.sp, lineHeight = 20.sp
             )
-            OutlinedTextField(
-                value = packageName, onValueChange = { packageName = it },
-                label = { Text("Package name (com.example.app)") },
-                isError = !pkgOk,
-                supportingText = { if (!pkgOk) Text("Use lowercase letters, digits and dots, like com.example.app") },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
+            AtcTextField("App name", title, { title = it }, "e.g. Dastarkhwan")
+            AtcTextField(
+                "Package name", packageName, { packageName = it }, "com.yourname.app",
+                helper = if (!pkgOk) "Use lowercase letters, digits and dots, like com.example.app" else null, error = !pkgOk
             )
-            OutlinedTextField(
-                value = optInUrl, onValueChange = { optInUrl = it },
-                label = { Text("Play Store opt-in link") },
-                isError = !optOk,
-                supportingText = { Text(if (!optOk) "Must start with https://play.google.com/" else "From Play Console > Testing > Closed testing") },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = groupUrl, onValueChange = { groupUrl = it },
-                label = { Text("Google Group link") },
-                isError = !groupOk,
-                supportingText = { Text(if (!groupOk) "Must start with https://groups.google.com/" else "The group you use as the tester list") },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = description, onValueChange = { description = it },
-                label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth()
-            )
-
-            Text("Category", fontWeight = FontWeight.Medium)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(CATEGORY_OPTIONS) { c ->
-                    FilterChip(
-                        selected = category == c,
-                        onClick = { category = c },
-                        label = { Text(c.replaceFirstChar { it.uppercase() }) }
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Category", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(CATEGORY_OPTIONS) { opt -> AtcChip(opt.replaceFirstChar { it.uppercase() }, category == opt) { category = opt } }
                 }
             }
-
-            Text("Testers needed", fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(12, 15, 20).forEach { n ->
-                    FilterChip(selected = testersNeeded == n, onClick = { testersNeeded = n }, label = { Text("$n") })
+            AtcTextField(
+                "Play Store opt-in link", optInUrl, { optInUrl = it }, "https://play.google.com/apps/testing/…",
+                helper = if (!optOk) "Must start with https://play.google.com/" else "From Play Console > Testing > Closed testing",
+                error = !optOk
+            )
+            AtcTextField(
+                "Google Group link", groupUrl, { groupUrl = it }, "https://groups.google.com/g/…",
+                helper = if (!groupOk) "Must start with https://groups.google.com/" else "Testers join this group so Google lets them install your app.",
+                error = !groupOk
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Testers needed", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(12, 15, 20).forEach { n ->
+                        val sel = testersNeeded == n
+                        PillButton(
+                            "$n testers", { testersNeeded = n }, Modifier.weight(1f), 48.dp,
+                            container = if (sel) c.accent else c.surface, content = if (sel) c.onAccent else c.ink,
+                            outlined = !sel
+                        )
+                    }
                 }
+                Text("Google asks for at least 12 testers opted in for 14 days in a row.", color = c.muted, fontSize = 13.sp)
             }
+            AtcTextField(
+                "What should testers look at?", description, { description = it },
+                "Short note on what to try and what feedback you want", singleLine = false, minLines = 3
+            )
+            error?.let { Text(it, color = c.danger, fontSize = 14.sp) }
+        }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-
-            Button(
+        Column(
+            Modifier.fillMaxWidth().background(c.bg).navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PillButton(
+                if (loading) "Adding…" else "Add to the testing queue",
                 onClick = {
                     scope.launch {
-                        loading = true
-                        error = null
+                        loading = true; error = null
                         val r = AppsRepository().createApp(
-                            title = title.trim(),
-                            packageName = pkg,
-                            playStoreUrl = optIn,
-                            googleGroupUrl = group,
-                            category = category,
-                            description = description.trim().ifEmpty { null },
-                            testersNeeded = testersNeeded
+                            title = title.trim(), packageName = pkg, playStoreUrl = optIn, googleGroupUrl = group,
+                            category = category, description = description.trim().ifEmpty { null }, testersNeeded = testersNeeded
                         )
                         loading = false
-                        if (r.isSuccess) onAppCreated()
-                        else error = r.exceptionOrNull()?.userMessage() ?: "Failed to create app."
+                        if (r.isSuccess) onAppCreated() else error = r.exceptionOrNull()?.userMessage() ?: "Failed to create app."
                     }
                 },
-                enabled = canSubmit,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (loading) CircularProgressIndicator(Modifier.size(24.dp)) else Text("Submit App")
-            }
+                modifier = Modifier.fillMaxWidth(), height = 54.dp,
+                container = if (c.isDark) c.accent else c.ink, content = if (c.isDark) c.onAccent else c.accent,
+                enabled = canSubmit
+            )
+            Text("Your app also joins the queue for you to test others' apps in return.", color = c.muted, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }

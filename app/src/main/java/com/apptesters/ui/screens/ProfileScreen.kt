@@ -1,27 +1,40 @@
 package com.apptesters.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.ProfileResponseDto
 import com.apptesters.data.repository.ProfileRepository
 import com.apptesters.domain.userMessage
+import com.apptesters.ui.components.*
+import com.apptesters.ui.theme.Atc
+import com.apptesters.ui.theme.Bricolage
+import com.apptesters.ui.theme.Lime
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
     onNavigateToAppDetail: (String) -> Unit = {}
 ) {
+    val c = Atc.colors
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<ProfileResponseDto?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -33,86 +46,103 @@ fun ProfileScreen(
         r.onFailure { error = it.userMessage() }
         loading = false
     }
-
     LaunchedEffect(Unit) { load() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Profile", fontWeight = FontWeight.Bold) },
-                actions = { TextButton(onClick = onNavigateToSettings) { Text("Settings") } }
-            )
-        }
-    ) { innerPadding ->
+    Box(Modifier.fillMaxSize().background(c.bg).statusBarsPadding()) {
         val d = data
         when {
-            loading -> LoadingBox(Modifier.padding(innerPadding))
-            d == null -> ErrorBox(error ?: "Could not load.", onRetry = { loading = true; scope.launch { load() } }, modifier = Modifier.padding(innerPadding))
+            loading -> LoadingBox()
+            d == null -> ErrorBox(error ?: "Could not load.", onRetry = { loading = true; scope.launch { load() } })
             else -> {
                 val p = d.profile
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
-                    item {
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    AppIcon(p.avatarUrl, p.displayName, 56.dp)
+                    // Header
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!p.avatarUrl.isNullOrBlank()) coil.compose.AsyncImage(
+                            p.avatarUrl, p.displayName, Modifier.size(76.dp).clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        ) else InitialsCircle(p.displayName, 76.dp)
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(p.displayName, color = c.ink, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 1)
+                            Text("@${p.username ?: ""} · Karma ${p.karma}", color = c.muted, fontSize = 14.sp)
+                            if (!p.bio.isNullOrBlank()) Text(p.bio, color = c.muted, fontSize = 14.sp, maxLines = 2)
+                        }
+                        CircleIconButton(AtcIcons.Sliders, onNavigateToSettings)
+                    }
+                    PillButton("Edit profile", onNavigateToEditProfile, Modifier.fillMaxWidth(), 48.dp, outlined = true, content = c.ink)
+
+                    // Stats
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val ink = Color(0xFF121212)
+                        Stat(d.stats.appsTested, "Apps tested", ink, Lime, Modifier.weight(1f))
+                        Stat(d.stats.bestStreak, "Best streak", Lime, ink, Modifier.weight(1f))
+                        Stat(d.stats.testersReceived, "Testers got", c.surface, c.ink, Modifier.weight(1f))
+                    }
+
+                    // My apps
+                    if (d.myApps.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionHeader("My apps")
+                        AtcCard {
+                            d.myApps.forEachIndexed { i, app ->
+                                if (i > 0) HorizontalDivider(color = c.divider)
+                                Row(Modifier.clickable { onNavigateToAppDetail(app.id) }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIcon(app.iconUrl, app.title, 44.dp)
                                     Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(p.displayName, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                        Text("@${p.username ?: ""}", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(app.title, color = c.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                                        Text("${app.status.replaceFirstChar { it.uppercase() }} · Day ${app.qualifiedDays} of 14", color = c.muted, fontSize = 13.sp)
                                     }
-                                }
-                                if (!p.bio.isNullOrBlank()) {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(p.bio, fontSize = 14.sp)
-                                }
-                                Spacer(Modifier.height(12.dp))
-                                OutlinedButton(onClick = onNavigateToEditProfile, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Edit Profile")
+                                    AtcIcon(AtcIcons.Chevron, c.muted, 20.dp)
                                 }
                             }
                         }
                     }
 
-                    item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatCard("Apps tested", d.stats.appsTested, Modifier.weight(1f))
-                            StatCard("Karma", p.karma, Modifier.weight(1f))
-                            StatCard("Best streak", d.stats.bestStreak, Modifier.weight(1f))
-                            StatCard("Testers got", d.stats.testersReceived, Modifier.weight(1f))
-                        }
-                    }
-
-                    if (d.myApps.isNotEmpty()) {
-                        item { Text("My apps", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-                        items(d.myApps, key = { it.id }) { app ->
-                            OutlinedCard(onClick = { onNavigateToAppDetail(app.id) }, modifier = Modifier.fillMaxWidth()) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    AppIcon(app.iconUrl, app.title, 40.dp)
+                    // Testing setup
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionHeader("Testing setup")
+                        AtcCard {
+                            listOf(
+                                "Play account email" to d.private?.playEmail,
+                                "Test device" to d.private?.deviceModel,
+                                "Android version" to d.private?.androidVersion
+                            ).forEachIndexed { i, (label, value) ->
+                                if (i > 0) HorizontalDivider(color = c.divider)
+                                Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(label, color = c.muted, fontSize = 14.sp)
                                     Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(app.title, fontWeight = FontWeight.Bold)
-                                        Text("${app.status.uppercase()} • ${app.qualifiedDays}/14 days", fontSize = 12.sp)
-                                    }
+                                    Text(value?.ifBlank { null } ?: "Not set", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.End, maxLines = 1)
                                 }
                             }
                         }
+                        Text("Developers use your Play account email to add you to their test group. It's only shared when you join a test.", color = c.muted, fontSize = 13.sp, lineHeight = 18.sp)
                     }
 
-                    if (d.history.isNotEmpty()) {
-                        item { Text("Testing history", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-                        items(d.history, key = { it.appId }) { h ->
-                            OutlinedCard(onClick = { onNavigateToAppDetail(h.appId) }, modifier = Modifier.fillMaxWidth()) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    AppIcon(h.iconUrl, h.title, 40.dp)
+                    // History
+                    if (d.history.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionHeader("Recently tested")
+                        AtcCard {
+                            d.history.forEachIndexed { i, h ->
+                                if (i > 0) HorizontalDivider(color = c.divider)
+                                val done = h.status == "completed"
+                                Row(Modifier.clickable { onNavigateToAppDetail(h.appId) }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIcon(h.iconUrl, h.title, 44.dp)
                                     Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(h.title, fontWeight = FontWeight.Bold)
-                                        Text("${h.status.uppercase()} • ${h.daysDone} days done", fontSize = 12.sp)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(h.title, color = c.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                                        Text("${h.daysDone} of 14 days", color = c.muted, fontSize = 13.sp)
                                     }
+                                    Text(
+                                        if (done) "Completed" else h.status.replaceFirstChar { it.uppercase() },
+                                        color = if (done) Color(0xFF121212) else c.ink, fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                                        modifier = Modifier.clip(CircleShape).background(if (done) Lime else Color.Transparent)
+                                            .border(1.5.dp, if (done) Lime else if (c.isDark) c.line else Color(0xFF121212), CircleShape)
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
                                 }
                             }
                         }
@@ -124,11 +154,9 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$value", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text(label, fontSize = 11.sp)
-        }
+private fun Stat(value: Int, label: String, bg: Color, fg: Color, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(20.dp)).background(bg).padding(horizontal = 12.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("$value", color = fg, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 30.sp)
+        Text(label, color = fg.copy(alpha = 0.85f), fontSize = 13.sp)
     }
 }

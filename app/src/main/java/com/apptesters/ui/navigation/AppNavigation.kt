@@ -190,7 +190,10 @@ fun MainAppNavigation() {
                             )
                             AppDestination.NOTIFICATIONS -> {
                                 androidx.activity.compose.BackHandler { currentDestination = AppDestination.HOME }
-                                NotificationsScreen(onOpenApp = { appId -> subScreen = SubScreen.AppDetail(appId) })
+                                NotificationsScreen(
+                                    onOpenApp = { appId -> subScreen = SubScreen.AppDetail(appId) },
+                                    onBack = { currentDestination = AppDestination.HOME }
+                                )
                             }
                             AppDestination.PROFILE -> ProfileScreen(
                                 onNavigateToSettings = { subScreen = SubScreen.Settings },

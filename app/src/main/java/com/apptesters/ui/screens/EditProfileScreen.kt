@@ -4,9 +4,14 @@ import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.foundation.background
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import com.apptesters.ui.components.*
+import com.apptesters.ui.theme.Atc
+import com.apptesters.ui.theme.Bricolage
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -21,7 +26,6 @@ private val USERNAME_REGEX = Regex("^[a-z0-9._]{3,20}$")
  * firstRun = true: shown right after the first sign-in. Username is required and
  * there is no back button; onSaved is called once the profile is saved.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     onBack: () -> Unit = {},
@@ -60,82 +64,42 @@ fun EditProfileScreen(
     val canSave = loaded && !isLoading && displayName.isNotBlank() &&
         (usernameValid || (!firstRun && usernameClean.isEmpty()))
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(if (firstRun) "Set up your profile" else "Edit Profile", fontWeight = FontWeight.Bold)
-                },
-                navigationIcon = {
-                    if (!firstRun) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+    val c = Atc.colors
+    Column(Modifier.fillMaxSize().background(c.bg)) {
+        if (firstRun) Spacer(Modifier.statusBarsPadding().height(16.dp)) else AtcTopBar(onBack = onBack) {}
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            if (firstRun) {
-                Text("Choose a username so other testers can find you.")
+            Text(
+                if (firstRun) "Set up your profile" else "Edit profile", color = c.ink,
+                fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp,
+                modifier = Modifier.padding(start = if (firstRun) 0.dp else 4.dp)
+            )
+            if (firstRun) Text("Choose a username so other testers can find you.", color = c.muted, fontSize = 14.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                InitialsCircle(displayName.ifBlank { "?" }, 80.dp)
             }
-            OutlinedTextField(
-                value = displayName,
-                onValueChange = { if (it.length <= 40) displayName = it },
-                label = { Text("Display Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            AtcTextField("Display name", displayName, { if (it.length <= 40) displayName = it }, "Your name")
+            AtcTextField(
+                "Username", username,
+                { username = it.lowercase().filter { ch -> ch.isLetterOrDigit() || ch == '.' || ch == '_' }.take(20) },
+                "username",
+                helper = if (username.isNotEmpty() && !usernameValid) "3-20 characters: a-z, 0-9, dot, underscore" else "Shown to other testers and developers.",
+                error = username.isNotEmpty() && !usernameValid
             )
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '.' || c == '_' }.take(20) },
-                label = { Text("Username") },
-                supportingText = { Text("3-20 characters: a-z, 0-9, dot, underscore") },
-                isError = username.isNotEmpty() && !usernameValid,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            AtcTextField(
+                "Play account email", playEmail, { playEmail = it }, "your Gmail address",
+                helper = "Used to add you to Google Groups for closed tests. Only shared when you join a test."
             )
-            OutlinedTextField(
-                value = bio,
-                onValueChange = { if (it.length <= 160) bio = it },
-                label = { Text("Bio") },
-                supportingText = { Text("${bio.length}/160") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = playEmail,
-                onValueChange = { playEmail = it },
-                label = { Text("Google Play Email") },
-                supportingText = { Text("Shown only to owners of apps you test") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = deviceModel,
-                onValueChange = { deviceModel = it },
-                label = { Text("Device Model") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = androidVersion,
-                onValueChange = { androidVersion = it },
-                label = { Text("Android Version") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-
-            Button(
+            AtcTextField("Test device", deviceModel, { deviceModel = it }, "your phone model")
+            AtcTextField("Android version", androidVersion, { androidVersion = it }, "e.g. 14")
+            AtcTextField("Bio", bio, { if (it.length <= 160) bio = it }, "What do you build?", helper = "${bio.length}/160", singleLine = false, minLines = 3)
+            errorMessage?.let { Text(it, color = c.danger, fontSize = 14.sp) }
+        }
+        Column(Modifier.fillMaxWidth().background(c.bg).navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
+            PillButton(
+                if (isLoading) "Saving…" else if (firstRun) "Continue" else "Save changes",
                 onClick = {
                     coroutineScope.launch {
                         isLoading = true
@@ -149,16 +113,13 @@ fun EditProfileScreen(
                             androidVersion = androidVersion.trim().ifEmpty { null }
                         )
                         isLoading = false
-                        if (res.isSuccess) onSaved()
-                        else errorMessage = res.exceptionOrNull()?.userMessage() ?: "Update failed"
+                        if (res.isSuccess) onSaved() else errorMessage = res.exceptionOrNull()?.userMessage() ?: "Update failed"
                     }
                 },
-                enabled = canSave,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                else Text(if (firstRun) "Continue" else "Save Changes")
-            }
+                modifier = Modifier.fillMaxWidth(), height = 54.dp,
+                container = if (c.isDark) c.accent else c.ink, content = if (c.isDark) c.onAccent else c.accent,
+                enabled = canSave
+            )
         }
     }
 }
