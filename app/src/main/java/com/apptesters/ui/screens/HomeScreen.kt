@@ -1,164 +1,190 @@
 package com.apptesters.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apptesters.data.dto.HomeResponseDto
 import com.apptesters.data.repository.HomeRepository
+import com.apptesters.data.repository.ProfileRepository
 import com.apptesters.domain.userMessage
-import com.apptesters.ui.theme.AppTestersCommunityTheme
+import com.apptesters.ui.components.*
+import com.apptesters.ui.theme.Atc
+import com.apptesters.ui.theme.Bricolage
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToDiscover: () -> Unit = {},
     onNavigateToAppDetail: (String) -> Unit = {},
-    onNavigateToLiveProgress: (String) -> Unit = {}
+    onNavigateToLiveProgress: (String) -> Unit = {},
+    onNavigateToInbox: () -> Unit = {},
+    onNavigateToAddApp: () -> Unit = {},
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val c = Atc.colors
+    val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    var homeData by remember { mutableStateOf<HomeResponseDto?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var loadError by remember { mutableStateOf<String?>(null) }
-    var checkingInId by remember { mutableStateOf<String?>(null) }
+    var data by remember { mutableStateOf<HomeResponseDto?>(null) }
+    var name by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var checkingId by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
-        val result = HomeRepository().getHome()
-        if (result.isSuccess) {
-            homeData = result.getOrNull()
-            loadError = null
-        } else {
-            loadError = result.exceptionOrNull()?.userMessage()
-        }
-        isLoading = false
+        val r = HomeRepository().getHome()
+        if (r.isSuccess) { data = r.getOrNull(); error = null } else error = r.exceptionOrNull()?.userMessage()
+        loading = false
+    }
+    LaunchedEffect(Unit) {
+        load()
+        ProfileRepository().getProfile().getOrNull()?.let { name = it.profile.displayName }
     }
 
-    LaunchedEffect(Unit) { load() }
-
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("App Testers Community", fontWeight = FontWeight.Bold) }) },
-        snackbarHost = { SnackbarHost(snackbar) }
-    ) { innerPadding ->
-        val data = homeData
+    Box(Modifier.fillMaxSize().background(c.bg).statusBarsPadding()) {
+        val d = data
         when {
-            isLoading -> Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            data == null -> Column(
-                Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(loadError ?: "Could not load.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.error)
-                Button(
-                    onClick = { coroutineScope.launch { isLoading = true; load() } },
-                    modifier = Modifier.padding(top = 16.dp)
-                ) { Text("Retry") }
-            }
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    val myApp = data.myApp
-                    Card(
-                        onClick = { if (myApp != null) onNavigateToLiveProgress(myApp.id) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("My Listed App", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            if (myApp != null) {
-                                Text(myApp.title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                Text("Status: ${myApp.status.uppercase()}", fontSize = 14.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                LinearProgressIndicator(
-                                    progress = { myApp.qualifiedDays / 14f },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Text("Qualified Days: ${myApp.qualifiedDays} / 14 days", fontSize = 12.sp)
-                            } else {
-                                Text("You have no active listed app.", fontSize = 16.sp)
-                            }
-                        }
+            loading -> LoadingBox()
+            d == null -> ErrorBox(error ?: "Could not load.", onRetry = { scope.launch { loading = true; load() } })
+            else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                // Header
+                Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    InitialsCircle(name.ifBlank { "?" })
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Salam,", color = c.muted, fontSize = 13.sp)
+                        Text(
+                            name.substringBefore(" ").ifBlank { "there" }, color = c.ink,
+                            fontFamily = Bricolage, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 24.sp
+                        )
                     }
+                    CircleIconButton(AtcIcons.Bell, onNavigateToInbox, badge = d.unreadNotifications > 0)
                 }
 
-                item { Text("Today's Check-ins", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-
-                if (data.todayCheckins.isEmpty()) {
-                    item { Text("You are not testing any app yet. Find one in Discover.", fontSize = 14.sp) }
-                }
-
-                items(data.todayCheckins, key = { it.appId }) { checkIn ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    // Hero
+                    val app = d.myApp
+                    if (app != null) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(c.heroBg).padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(checkIn.title, fontWeight = FontWeight.Bold)
-                                Text("Streak: ${checkIn.streak} days", fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AppIcon(app.iconUrl, app.title, 44.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(app.title, color = c.heroInk, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1)
+                                    Text("Closed testing", color = c.heroMuted, fontSize = 13.sp)
+                                }
+                                Row(
+                                    Modifier.border(1.5.dp, c.heroAccent, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(Modifier.size(7.dp).clip(CircleShape).background(c.heroAccent))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(app.status.replaceFirstChar { it.uppercase() }, color = c.heroAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
-                            Button(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        checkingInId = checkIn.appId
-                                        val res = HomeRepository().checkIn(checkIn.appId)
-                                        checkingInId = null
-                                        if (res.isSuccess) load()
-                                        else snackbar.showSnackbar(res.exceptionOrNull()?.userMessage() ?: "Check-in failed")
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text("${app.joinedCount}", color = c.heroInk, fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 60.sp, lineHeight = 60.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("of ${app.testersNeeded} testers", color = c.heroMuted, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
+                                Spacer(Modifier.weight(1f))
+                                Text("Day ${app.qualifiedDays} / 14", color = c.heroAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
+                            }
+                            SegmentBar(app.qualifiedDays, 14, c.heroSegOn, c.heroSegOff)
+                            PillButton(
+                                "See live progress", { onNavigateToLiveProgress(app.id) },
+                                Modifier.fillMaxWidth(), height = 48.dp,
+                                container = if (c.isDark) c.heroInk else c.accent,
+                                content = if (c.isDark) c.accent else c.onAccent,
+                                trailingIcon = AtcIcons.Arrow
+                            )
+                        }
+                    }
+
+                    // Today's check-ins
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        val done = d.todayCheckins.count { it.checkedInToday }
+                        SectionHeader("Today's check-ins", "$done of ${d.todayCheckins.size} done")
+                        if (d.todayCheckins.isEmpty()) {
+                            AtcCard { Text("You are not testing any app yet. Find one in Discover.", color = c.muted, fontSize = 14.sp, modifier = Modifier.padding(16.dp)) }
+                        } else AtcCard {
+                            d.todayCheckins.forEachIndexed { i, ci ->
+                                if (i > 0) HorizontalDivider(color = c.divider)
+                                Row(
+                                    Modifier.clickable { onNavigateToAppDetail(ci.appId) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AppIcon(ci.iconUrl, ci.title, 44.dp)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(ci.title, color = c.ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                                        Text("Streak ${ci.streak} days", color = c.muted, fontSize = 13.sp)
                                     }
-                                },
-                                enabled = !checkIn.checkedInToday && checkingInId == null
-                            ) {
-                                Text(if (checkIn.checkedInToday) "Checked In ✓" else "Check In")
+                                    val isDone = ci.checkedInToday
+                                    val busy = checkingId == ci.appId
+                                    Box(
+                                        Modifier.height(44.dp).widthIn(min = 96.dp).clip(CircleShape)
+                                            .background(if (isDone) c.accent else if (c.isDark) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.ui.graphics.Color(0xFF121212))
+                                            .then(if (!isDone && c.isDark) Modifier.border(1.5.dp, c.accent, CircleShape) else Modifier)
+                                            .clickable(enabled = !isDone && checkingId == null) {
+                                                scope.launch {
+                                                    checkingId = ci.appId
+                                                    val r = HomeRepository().checkIn(ci.appId)
+                                                    checkingId = null
+                                                    if (r.isSuccess) load() else snackbar.showSnackbar(r.exceptionOrNull()?.userMessage() ?: "Check-in failed")
+                                                }
+                                            }.padding(horizontal = 14.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            if (isDone) "Done today" else if (busy) "…" else "Check in",
+                                            color = if (isDone) c.onAccent else c.accent, fontWeight = FontWeight.Bold, fontSize = 14.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Apps Needing Testers", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        TextButton(onClick = onNavigateToDiscover) { Text("See All") }
-                    }
-                }
-
-                items(data.needsTesters, key = { it.id }) { app ->
-                    OutlinedCard(
-                        onClick = { onNavigateToAppDetail(app.id) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(app.title, fontWeight = FontWeight.Bold)
-                            Text("By ${app.ownerName} • ${app.spotsLeft} spots left", fontSize = 12.sp)
+                    // Needs testers
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionHeader("Needs testers", "See all", onNavigateToDiscover)
+                        d.needsTesters.forEach { n ->
+                            AtcCard(onClick = { onNavigateToAppDetail(n.id) }) {
+                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIcon(n.iconUrl, n.title, 48.dp)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(n.title, color = c.ink, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                                        Text("@${n.ownerName} · ${n.spotsLeft} spots left", color = c.muted, fontSize = 13.sp)
+                                        ThinBar((12 - n.spotsLeft).coerceAtLeast(0) / 12f)
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    AtcIcon(AtcIcons.Chevron, c.ink, 20.dp)
+                                }
+                            }
                         }
+                        DashedButton("Add your app to the queue", AtcIcons.Plus, onNavigateToAddApp)
                     }
                 }
             }
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    AppTestersCommunityTheme { HomeScreen() }
 }

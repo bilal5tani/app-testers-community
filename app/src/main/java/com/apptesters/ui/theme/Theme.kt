@@ -1,58 +1,41 @@
 package com.apptesters.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import com.apptesters.data.repository.PreferencesRepository
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+val LocalAtc = staticCompositionLocalOf { LightAtcColors }
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
+/** Shortcut: Atc.colors.surface etc. */
+object Atc {
+    val colors: AtcColors @Composable get() = LocalAtc.current
+}
 
 @Composable
-fun AppTestersCommunityTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+fun AppTestersCommunityTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val repo = remember { PreferencesRepository(context.applicationContext) }
+    val pref by repo.themeFlow.collectAsState(initial = "system")
+    val dark = when (pref) {
+        "dark" -> true
+        "light" -> false
+        else -> isSystemInDarkTheme()
     }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
+    val c = if (dark) DarkAtcColors else LightAtcColors
+    val scheme = if (dark) darkColorScheme(
+        primary = c.accent, onPrimary = c.onAccent, primaryContainer = c.surfaceAlt, onPrimaryContainer = c.ink,
+        secondary = c.muted, background = c.bg, onBackground = c.ink, surface = c.surface, onSurface = c.ink,
+        surfaceVariant = c.surfaceAlt, onSurfaceVariant = c.muted, outline = c.line, error = c.danger,
+    ) else lightColorScheme(
+        primary = c.ink, onPrimary = c.accent, primaryContainer = c.surfaceAlt, onPrimaryContainer = c.ink,
+        secondary = c.muted, background = c.bg, onBackground = c.ink, surface = c.surface, onSurface = c.ink,
+        surfaceVariant = c.surfaceAlt, onSurfaceVariant = c.muted, outline = c.line, error = c.danger,
     )
+    CompositionLocalProvider(LocalAtc provides c) {
+        MaterialTheme(colorScheme = scheme, typography = Typography, content = content)
+    }
 }

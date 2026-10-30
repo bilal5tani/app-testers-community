@@ -17,7 +17,9 @@ import com.apptesters.data.SupabaseClientProvider
 import com.apptesters.data.repository.ProfileRepository
 import com.apptesters.domain.userMessage
 import com.apptesters.push.PushSetup
+import com.apptesters.ui.components.*
 import com.apptesters.ui.screens.*
+import com.apptesters.ui.theme.Atc
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
@@ -155,18 +157,20 @@ fun MainAppNavigation() {
                 )
             }
             SubScreen.None -> {
+                val tabs = listOf(
+                    AppDestination.HOME to NavItem("Home", AtcIcons.Home),
+                    AppDestination.DISCOVER to NavItem("Discover", AtcIcons.Compass),
+                    AppDestination.ADD_APP to NavItem("Add app", AtcIcons.Plus),
+                    AppDestination.PROFILE to NavItem("Profile", AtcIcons.Person),
+                )
                 Scaffold(
+                    containerColor = Atc.colors.bg,
                     bottomBar = {
-                        NavigationBar {
-                            AppDestination.entries.forEach { destination ->
-                                NavigationBarItem(
-                                    selected = currentDestination == destination,
-                                    onClick = { currentDestination = destination },
-                                    label = { Text(destination.title) },
-                                    icon = {}
-                                )
-                            }
-                        }
+                        AtcBottomBar(
+                            items = tabs.map { it.second },
+                            selectedIndex = tabs.indexOfFirst { it.first == currentDestination },
+                            onSelect = { currentDestination = tabs[it].first }
+                        )
                     }
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
@@ -174,7 +178,9 @@ fun MainAppNavigation() {
                             AppDestination.HOME -> HomeScreen(
                                 onNavigateToDiscover = { currentDestination = AppDestination.DISCOVER },
                                 onNavigateToAppDetail = { appId -> subScreen = SubScreen.AppDetail(appId) },
-                                onNavigateToLiveProgress = { appId -> subScreen = SubScreen.LiveProgress(appId) }
+                                onNavigateToLiveProgress = { appId -> subScreen = SubScreen.LiveProgress(appId) },
+                                onNavigateToInbox = { currentDestination = AppDestination.NOTIFICATIONS },
+                                onNavigateToAddApp = { currentDestination = AppDestination.ADD_APP }
                             )
                             AppDestination.DISCOVER -> DiscoverScreen(
                                 onNavigateToAppDetail = { appId -> subScreen = SubScreen.AppDetail(appId) }
@@ -182,9 +188,10 @@ fun MainAppNavigation() {
                             AppDestination.ADD_APP -> AddAppScreen(
                                 onAppCreated = { currentDestination = AppDestination.HOME }
                             )
-                            AppDestination.NOTIFICATIONS -> NotificationsScreen(
-                                onOpenApp = { appId -> subScreen = SubScreen.AppDetail(appId) }
-                            )
+                            AppDestination.NOTIFICATIONS -> {
+                                androidx.activity.compose.BackHandler { currentDestination = AppDestination.HOME }
+                                NotificationsScreen(onOpenApp = { appId -> subScreen = SubScreen.AppDetail(appId) })
+                            }
                             AppDestination.PROFILE -> ProfileScreen(
                                 onNavigateToSettings = { subScreen = SubScreen.Settings },
                                 onNavigateToEditProfile = { subScreen = SubScreen.EditProfile },
